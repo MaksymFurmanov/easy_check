@@ -1,20 +1,24 @@
 import os
 import json
-from flask import Flask, request, render_template_string
+from flask import Flask, request, render_template_string, session
+from flask_session import Session
 from openai import OpenAI
 from PyPDF2 import PdfReader
 import easyocr
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
+app.secret_key = "super_secret_key"
+app.config['SESSION_TYPE'] = 'filesystem'  # Використовуємо файлову систему для сесій
+Session(app)  # Ініціалізація Flask-Session
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Initialize OpenAI client with your API key
-client = OpenAI(
-    api_key=""
-)
+os.environ[
+    'OPENAI_API_KEY'] = ''
 
-# HTML template with enhanced drag-and-drop for multiple files
+# Initialize OpenAI client with your API key
+client = OpenAI()
+
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
@@ -96,6 +100,27 @@ HTML_TEMPLATE = """
             white-space: pre-wrap;
             font-family: inherit;
         }
+        .history {
+            margin-top: 20px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        .history .message {
+            margin-bottom: 10px;
+        }
+        .history .user {
+            color: #007BFF;
+            font-weight: bold;
+        }
+        .history .assistant {
+            color: #28A745;
+            font-weight: bold;
+        }
+        .history .file {
+            color: #FF9900;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -109,6 +134,27 @@ HTML_TEMPLATE = """
             <ul class="file-list" id="file-list"></ul>
             <button type="submit">Submit</button>
         </form>
+
+        {% if history %}
+        <div class="history">
+            <h3>Conversation History:</h3>
+            {% for message in history %}
+            <div class="message">
+                {% if message.role == 'user' %}
+                <div class="user">User:</div>
+                <div>{{ message.content }}</div>
+                {% elif message.role == 'assistant' %}
+                <div class="assistant">Assistant:</div>
+                <div>{{ message.content }}</div>
+                {% elif message.role == 'file' %}
+                <div class="file">File Uploaded:</div>
+                <div>{{ message.content }}</div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         {% if response %}
         <div class="response">
             <h3>Response:</h3>
@@ -155,6 +201,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
+
 def extract_text_from_pdf(file_path):
     """Extracts text from a PDF file."""
     try:
@@ -162,6 +209,7 @@ def extract_text_from_pdf(file_path):
         return "\n".join(page.extract_text() for page in reader.pages)
     except Exception as e:
         return f"Error reading PDF file: {str(e)}"
+
 
 def extract_text_from_image(file_path):
     """Extracts text from an image using EasyOCR."""
@@ -172,12 +220,18 @@ def extract_text_from_image(file_path):
     except Exception as e:
         return f"Error reading image file: {str(e)}"
 
+
 @app.route("/", methods=["GET", "POST"])
 def index():
+    if "history" not in session:
+        session["history"] = [{"role": "system", "content": "You are a helpful assistant."}]
+
     response = None
+
     if request.method == "POST":
         prompt = request.form.get("prompt", "")
         files = request.files.getlist("files")
+        combined_prompt = prompt
 
         # Handle multiple uploaded files
         for file in files:
@@ -185,35 +239,38 @@ def index():
                 file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
                 file.save(file_path)
                 try:
-                    if file.filename.endswith(".json"):
-                        with open(file_path, "r") as f:
-                            file_content = json.load(f)
-                        prompt += f"\n\nFile Content ({file.filename}): {json.dumps(file_content)}"
-                    elif file.filename.endswith(".pdf"):
+                    if file.filename.endswith(".pdf"):
                         file_content = extract_text_from_pdf(file_path)
-                        prompt += f"\n\nExtracted PDF Text ({file.filename}): {file_content}"
+                        combined_prompt += f"\n\nPDF Extracted Text ({file.filename}): {file_content}"
+                        session["history"].append({"role": "file", "content": f"PDF Extracted Text: {file_content}"})
                     elif file.filename.lower().endswith((".png", ".jpg", ".jpeg")):
                         file_content = extract_text_from_image(file_path)
-                        prompt += f"\n\nExtracted Image Text ({file.filename}): {file_content}"
+                        combined_prompt += f"\n\nImage Extracted Text ({file.filename}): {file_content}"
+                        session["history"].append({"role": "file", "content": f"Image Extracted Text: {file_content}"})
+                    else:
+                        combined_prompt += f"\n\nFile ({file.filename}) uploaded but not processed."
+                        session["history"].append(
+                            {"role": "file", "content": f"File {file.filename} uploaded but not processed."})
                 except Exception as e:
-                    response = f"Error processing file {file.filename}: {str(e)}"
+                    session["history"].append(
+                        {"role": "file", "content": f"Error processing file {file.filename}: {str(e)}"})
 
-        if prompt:
+        if combined_prompt:
+            session["history"].append({"role": "user", "content": combined_prompt})
             try:
-                # Call OpenAI's chat completion endpoint
                 chat_completion = client.chat.completions.create(
-                    messages=[
-                        {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": prompt},
-                    ],
-                    model="chatgpt-4o-latest",  # Specify the GPT model
-                    max_tokens=1024,
+                    messages=session["history"],
+                    model="chatgpt-4o-latest",
                 )
-                response = chat_completion.choices[0].message.content
+                assistant_response = chat_completion.choices[0].message.content
+                session["history"].append({"role": "assistant", "content": assistant_response})
+                session.modified = True
+                response = assistant_response
             except Exception as e:
                 response = f"Error: {str(e)}"
 
-    return render_template_string(HTML_TEMPLATE, response=response)
+    return render_template_string(HTML_TEMPLATE, response=response, history=session.get("history", []))
+
 
 if __name__ == "__main__":
     app.run(debug=True)
