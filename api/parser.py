@@ -52,11 +52,12 @@ def process_pdf_files(file_path):
            #  Append the new user message to chat history
             chat_history.append({"role": "user", "content": prompt})
 
-         #    Call OpenAI's chat completion endpoint
+        #    Call OpenAI's chat completion endpoint
             chat_completion = client.chat.completions.create(
                 messages=chat_history,
                 model="chatgpt-4o-latest",  # Specify the GPT model
-                max_tokens=1024
+                max_tokens=1024,
+                temperature=0.1
             )
 
             # Extract and save the assistant's response
