@@ -1,7 +1,8 @@
-import {ChangeEvent, Dispatch, MouseEvent, RefObject, SetStateAction, useRef} from "react";
+import {ChangeEvent, MouseEvent, RefObject, useRef} from "react";
+import {useSetTemplate, useTemplate} from "../../providers/TemplateProvider";
 
-export default function TemplateFileInput({template, setTemplate}:
-                                             { template: File | null, setTemplate: Dispatch<SetStateAction<File | null>> }) {
+export default function TemplateFileInput() {
+    const setTemplate = useSetTemplate();
     const inputRef = useRef<HTMLInputElement>(null);
 
     const exampleHandler = (e: ChangeEvent<HTMLInputElement>) => {
@@ -10,6 +11,7 @@ export default function TemplateFileInput({template, setTemplate}:
 
         const file = files[0];
 
+        if(!setTemplate) return;
         setTemplate(file);
     }
 
@@ -18,7 +20,7 @@ export default function TemplateFileInput({template, setTemplate}:
             <label className={"text-xl"}>
                 Form example:
             </label>
-            <UploadingButton example={template} inputRef={inputRef}/>
+            <UploadingButton inputRef={inputRef}/>
             <input ref={inputRef}
                    type={"file"}
                    name={"template"}
@@ -29,10 +31,11 @@ export default function TemplateFileInput({template, setTemplate}:
     );
 }
 
-function UploadingButton({example, inputRef}: {
-    example: File | null,
+function UploadingButton({inputRef}: {
     inputRef: RefObject<HTMLInputElement>
 }) {
+    const template = useTemplate();
+
     const initUploading = (e: MouseEvent<HTMLButtonElement, globalThis.MouseEvent>) => {
         e.preventDefault();
         if (!inputRef || !inputRef.current) return;
@@ -45,7 +48,7 @@ function UploadingButton({example, inputRef}: {
             className={"bg-white w-fit px-6 py-1 text-black border-2 border-black rounded-full hover:bg-slate-200"}
             onClick={(e) => initUploading(e)}
         >
-            {example ? example.name : "Upload example file"}
+            {template ? template.name : "Upload example file"}
         </button>
     );
 }

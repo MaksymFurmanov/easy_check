@@ -4,14 +4,23 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import {BrowserRouter} from "react-router";
+import TemplateProvider from "./providers/TemplateProvider";
+import FilesProvider from "./providers/FilesProvider";
+import ResultsProvider from "./providers/ResultsProvider";
 
 const root = ReactDOM.createRoot(
-  document.getElementById('root') as HTMLElement
+    document.getElementById('root') as HTMLElement
 );
 root.render(
     <StrictMode>
         <BrowserRouter>
-            <App/>
+            <ResultsProvider>
+                <TemplateProvider>
+                    <FilesProvider>
+                        <App/>
+                    </FilesProvider>
+                </TemplateProvider>
+            </ResultsProvider>
         </BrowserRouter>
     </StrictMode>,
 );

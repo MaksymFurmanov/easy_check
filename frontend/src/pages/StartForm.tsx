@@ -1,18 +1,25 @@
-import {useState, useEffect, FormEvent} from "react";
+import {useState, FormEvent} from "react";
 import TemplateInput from "../components/start-page/TemplateInput";
 import FilesInput from "../components/start-page/FilesInput";
 import {submitFiles} from "../lib/actions";
+import {useNavigate} from "react-router";
+import {useTemplate} from "../providers/TemplateProvider";
+import {useFiles} from "../providers/FilesProvider";
 
 export default function StartForm() {
+    const files = useFiles();
+    const template = useTemplate();
     const [isPending, setIsPending] = useState<boolean>(false);
-    const [files, setFiles] = useState<File[] | null>(null);
-    const [template, setTemplate] = useState<File | null>(null);
+
+    const navigate = useNavigate();
 
     const submitHandler = async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
         setIsPending(true);
-        if (!template || !files) return;
-        const res = await submitFiles(template, files);
-
+        if (!template) return;
+        const res = await submitFiles(template);
+        console.log(res)
+        navigate("/template-editor");
     }
 
     return (
@@ -24,8 +31,8 @@ export default function StartForm() {
                 <h2 className={"mt-4 text-lg text-center"}>
                     Check documents data easier with AI
                 </h2>
-                <TemplateInput template={template} setTemplate={setTemplate}/>
-                {template ? <FilesInput files={files} setFiles={setFiles}/> : null}
+                <TemplateInput />
+                {template ? <FilesInput /> : null}
                 {files && <RedirectButton/>}
             </div>
         </form>

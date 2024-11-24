@@ -1,10 +1,12 @@
-import {ChangeEvent, Dispatch, MouseEvent, SetStateAction, useRef} from "react";
+import {ChangeEvent, MouseEvent, useRef} from "react";
 import FileItem from "./FileItem";
 import { LuPlus } from "react-icons/lu";
+import {useFiles, useSetFiles} from "../../providers/FilesProvider";
 
-export default function FilesInput({files, setFiles}:
-                                       { files: File[] | null, setFiles: Dispatch<SetStateAction<File[] | null>> }) {
+export default function FilesInput() {
     const inputRef = useRef<HTMLInputElement>(null);
+    const files = useFiles();
+    const setFiles = useSetFiles();
 
     const exampleHandler = (e: ChangeEvent<HTMLInputElement>) => {
         const filesInput = e.target.files;
@@ -12,6 +14,7 @@ export default function FilesInput({files, setFiles}:
 
         const filesArray = Array.from(filesInput);
 
+        if(!setFiles) return;
         setFiles((prevState) => {
             if (!prevState) return [...filesArray];
             return [...prevState, ...filesArray]
@@ -31,7 +34,6 @@ export default function FilesInput({files, setFiles}:
                 <FileItem key={index}
                           file={file}
                           fileIndex={index}
-                          setFiles={setFiles}
                 />
             )}
             <button
