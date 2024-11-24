@@ -66,8 +66,11 @@ def generate_logic_rules(json_elem):
         response = f"Error: {str(e)}"
     # Extract logic rules from response
     # print(f"Logic rules:\n{response}")
+    # print(f"Logic rules:\n{rules}")
+    response = response.decode('utf-8') if isinstance(rules, bytes) else rules
+    json_element = json.loads(response)
 
-    return response
+    return json_element
 
 
 def get_logic_rules():
@@ -84,9 +87,9 @@ def get_logic_rules():
     save_to_json(json_element)
 
 
-if __name__ == "__main__":
-    # Вызов основной функции для получения логических правил
-    get_logic_rules()
-    print("Логические правила были сохранены в файл rules_output.json.")
+# if __name__ == "__main__":
+#     # Вызов основной функции для получения логических правил
+#     get_logic_rules()
+#     print("Логические правила были сохранены в файл rules_output.json.")
 
 
