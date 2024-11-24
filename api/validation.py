@@ -21,18 +21,19 @@ def validate_with_openai(value, criteria):
     Проверяет значение `value` с помощью OpenAI на соответствие критериям.
     """
     prompt = f"""
-    You are a validation assistant. A value needs to be checked against specific criteria.
-    The value is: {value}
-    The criteria are:
-    {criteria}
+    You are a validation assistant. Your task is to verify if a given value satisfies a list of criteria.
+    - The value is: "{value}".
+    - The criteria are:
+      {criteria}
 
-    Does the value satisfy all criteria? Return "Yes" if it satisfies all, otherwise return "No".
+    Answer with "Yes" if the value satisfies all the criteria, or "No" if it does not.
+    Provide no additional text, only "Yes" or "No".
     """
     try:
         response = client.chat.completions.create(
             model="chatgpt-4o-latest",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=1024
+            max_tokens=5  # Сокращаем длину ответа, чтобы избежать лишнего текста
         )
         result = response.choices[0].message.content.strip()
         return result.lower() == "yes"
@@ -40,13 +41,14 @@ def validate_with_openai(value, criteria):
         print(f"Error with OpenAI: {e}")
         return False
 
+
 # Проверка значений из `stan.json`
 results = []
 
 for item in stan_data:
     label = item.get("label")
     value = item.get("value")
-    status = 1  # По умолчанию ставим 1, если все проверки пройдены
+    status = 1  # По умолчанию успешный статус
 
     # Найти regex для текущего label
     regex_pattern = regex_data["regex"] if regex_data.get("label") == label else None
@@ -58,15 +60,11 @@ for item in stan_data:
         else None
     )
 
-    # Если совпадение label не найдено в regex.json или logic.json
-    if not regex_pattern and not criteria:
-        results.append({"label": label, "value": value, "status": -1})  # Не найдено соответствие
-        continue
-
-    # Проверка значения через regex
-    if regex_pattern and not re.match(regex_pattern, value):
-        results.append({"label": label, "value": value, "status": -1})  # Не соответствует regex
-        continue
+    # Проверка регулярного выражения
+    if regex_pattern:
+        if not re.fullmatch(regex_pattern, value):  # Используем fullmatch
+            results.append({"label": label, "value": value, "status": -1})  # Не соответствует regex
+            continue
 
     # Проверка значения через criteria
     if criteria:
